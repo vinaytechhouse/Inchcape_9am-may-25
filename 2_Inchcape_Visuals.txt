@@ -1,0 +1,320 @@
+
+badhires remove from emp, tenure days and months
+
+1. Open PBI Desktop, Extract the given Excel file
+2. Go to Table View-> Ensure all tables having proper shape, consider first row as header for few tables.
+3. Go to Model View--> look at one by one dimension table columns with emp table columns, if values match, then connect.
+
+	At the time of age group table, there is no direct match, hence we need to create a new column in employee table
+	and then join with age group table.
+
+	Employee[FP]->FP[FP]
+	Employee[Gender]->Gender[ID]
+	Employee[Term Reason]->Separation[Separation Type ID]
+	Employee[BU]->BU[BU]
+	Employee[Date]->Date[Date]
+	Employee[EnthnicGroup]->Ethnicity[Ethnic Group]
+	Employee[PayTypeID]->PayType[PayTypeID]
+	
+	AgeGroup table does not have proper match in Employee table because employee table age value is there and 
+	age group table category available.
+	
+	Emp Table->right click->new column-> write the below expression
+	AgeGroupID=switch(True, Employee[Age]<=31,1,Employee[Age]<=40,2,Employee[Age]>=50,3)
+
+	Connect this column with AgeGroupId in AgeGroup table [model view]
+
+	Employee[AgeGroupID]->AgeGroup[AgreGroupID]
+	
+	Formula explanation:
+	Conditional evaluation in DAX: If (single condition) and Switch (multiple conditions)
+	True: Bypasses the condition always
+	Switch returns result after first match.
+
+****************************************
+New Hires analysis is required, but there is no newhire column in any table, hence we need to create in the supportive table
+employee by evaluating HireDate column
+******************************************
+
+4. Create a Calculated  Columns for the new hires analysis
+
+	Emp table-> New column->write the below formula
+
+	 isNewHire = IF(YEAR([date]) = YEAR([HireDate]) && MONTH([date])=MONTH([HireDate]), 1)
+
+	Note: Ensure the column is having only Blanks and 1 values
+
+
+
+
+Emp table-> New column->write the below formula
+
+
+BadHires = IF(OR((([HireDate]-[TermDate])- 1)>=61,ISBLANK([TermDate])),0,1)
+
+Emp table-> New column->write the below formula
+
+TenureDays = IF([date]-[HireDate]<0,[HireDate]-[date],[date]-[HireDate]) 
+TenureDays = IF(Datediff([Date], [HireDate], DAY)<0,DATEDIFF([HireDate],[Date], DAY),datediff([Date],[HireDate], DAY))
+
+Emp table-> New column->write the below formula
+
+
+TenureMonths = CEILING([TenureDays]/30, 1) -1
+
+5. Create new table for all measures
+	
+	Home menu->New Table->Click grid, take one column(i.e EID) and table name: New Hires Analysis->Ok
+
+	Go to New Hires Analysis table and create one by one measure like below:
+
+
+	New Hires analysis table-> New measure
+			New Hires = SUM(Employee[isNewHire])
+
+	New Hires analysis table-> New measure
+
+			New Hires SPLY = CALCULATE([New Hires],SAMEPERIODLASTYEAR('Date'[Date]))
+
+	New Hires analysis table-> New measure
+
+			New Hires YoY Var = [New Hires]-[New Hires SPLY]
+
+	New Hires analysis table-> New measure
+		New Hires YoY % Change = DIVIDE([New Hires YoY Var], [New Hires SPLY])
+
+
+	New Hires analysis table-> New measure
+		EmpCount = CALCULATE(COUNT(Employee[EmplID]), FILTER(ALL('Date'[PeriodNumber]), 'Date'[PeriodNumber] = MAX('Date'[PeriodNumber])))
+
+	New Hires analysis table-> New measure	
+
+	Actives = CALCULATE([EmpCount], FILTER(Employee, ISBLANK(Employee[TermDate])))
+
+	New Hires analysis table-> New measure	
+	Actives SPLY = CALCULATE([Actives], SAMEPERIODLASTYEAR('Date'[Date]))
+
+	New Hires analysis table-> New measure
+		Actives YoY Var = [Actives]-[Actives SPLY]
+
+	New Hires analysis table-> New measure
+		Actives YoY % Change = DIVIDE([Actives YoY Var], [Actives SPLY])
+
+
+Note: Remove the EID column, so that measure group table identified separately
+
+
+Divide calculations into multiple groups
+
+EmpCount = CALCULATE(COUNT(Employee[EmplID]), FILTER(ALL('Date'[Date]), 'Date'[Date] = MAX('Date'[Date])))
+
+Note: Inplace of date periodnumbers
+
+BU TABLE:
+Region = mid([RegionSeq],3,len([RegionSeq])-2)
+
+6. Go to Report view
+	
+	Page: New Hires Page
+
+	Take a textbox and specify "New Hires Analysis" [Insert menu->Textbox].
+	
+
+	a) Take three slicers with slicer style as Dropdown
+
+				Slicer 1: Year (Date Table Year Field), Format: Slicer Settings: Type: Dropdown, Slicer Header: 15 px    															Slicer Value: 14 Px, Border : ON
+
+				Slicer 2 Quarter (Date Table Quarter Field), Format: Slicer Settings: Type: Dropdown, Slicer Header: 15 px    															Slicer Value: 14 Px, Border : ON
+
+
+				Slicer 3: Month (Date Table Month Field), Format: Slicer Settings: Type: Dropdown, Slicer Header: 15 px    															Slicer Value: 14 Px, Border : ON
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	b) Take Line and Clustered Column Chart 
+
+		(Month wise new hires and same period last year hires, actives change over trend)
+
+		X Axis: Month
+		Column Y-Axis: New Hires, New Hires SPLY
+		Line Y-Axis: New Hires YoY Var
+
+		ToolTip:	Year --> Maximum, Qtr
+
+		Size or Style ->Visual Border 'ON'  [Latest ] or   General Section-> Visual Border ON [Old versions]
+
+		Title: Month wise New Hires Analysis
+			Font: 15 Text color: White   Background: Brown
+
+	
+	Testing: Change the year in year slicer and look at the visual
+
+
+
+
+
+
+
+
+
+
+
+c) Line Chart( Month wise full time and part time trend analysis)
+
+		X Axis: Month Name
+		Y Axis: New Hires
+		Legend: FP Desc
+		
+		Note: It now shows Full time and Part time individual new hires trend analysis
+
+		Multiple measures (Y and Secondary Y) or multiple categories (Legend) only possible, bot not combo.
+		Size or Style ->Visual Border 'ON'  [Latest ] or   General Section-> Visual Border ON [Old versions]
+
+		Title: Month wise New Hires Analysis
+			Font: 15 Text color: White   Background: Brown
+
+d)Pie Chart	(Gender joining in new hires)
+
+		Legend: Gender table Gender column
+		Values: New Hires
+		Note: Ensure Gender table ID connected Employee table Gender Column
+		SLicer year and verify the values
+
+Size or Style ->Visual Border 'ON'  [Latest ] or   General Section-> Visual Border ON [Old versions]
+
+		Title: Month wise New Hires Analysis
+			Font: 15 Text color: White   Background: Brown
+
+(Region wise, ethnicity wise, new hires joining and trend of actives year over year change)
+
+e) Go to BU Table--> New Column->
+
+			Region = mid(BU[RegionSeq],3,len(BU[RegionSeq])-2)
+
+			Mid: Will bring middle characters from the specified position to the length given
+	
+				Ex: mid("1-North",3, 7-2)=mid("1-North",3,5)
+
+		Note: In the Power Query level, we can use split to split the information, still I would like to show DAX
+			usage, hence this example.
+		
+		(Region wise, ethnicity wise, new hires joining and trend of actives year over year change)
+
+		Take Line and Stacked Column Chart
+
+			X Axis: Region from BU table
+			Y Axis: New Hires
+			Line Y-Axis: Actives YoY Var
+			Legend: Ethnicity
+
+		Note: Slice Year and Month and see the result
+
+	
+
+
+
+
+
+
+
+
+
+f) Take Waterfall chart
+		(AgeGroup wise new hires up and down)
+
+		Category: AgeGroup
+		Y-Axis: New Hires
+
+
+		Note: Slice Year and Month and see the result
+
+
+
+
+
+
+`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+d)Pie Chart
+
+		(Gender wise new hires composition)
+
+		Legend: Gender table Gender column
+		Values: New Hires
+
+		Note: Ensure Gender table ID connected Employee table Gender Column
+		SLicer year and verify the values
+
+
+
+
+	g) Go to each visual, general section, title : Keep a meaningful title so that users will understand easily
+
+	***ONCE DEVELOPMENT IS COMPLETED CLOUD STORAGE HAPPENS*****
+
+	h) Go to app.powerbi.coo, connect using the below credentials
+			user name: vinaytech_0202@vinaytechhouse.com
+			password: vinaytech@2023
+
+		Go to left handside panel--> Workspaces->New Workspace-> Give any name-> Save.
+
+		Go to the workspace-> Upload menu tab-> Browse--> Browse the current live practice file.
+
+	****ONCE STORED AND VERIFIED, SHARING IN ADVANCED (A FEW COMPANIES) APPSPACE SHARING***
+
+	Workspace--> "..."-> Create App
+		Setup: 
+				Name: Any name
+				Desc: Any
+				Advanced Settings:
+					Navigation : Expand By Default
+					Global app setting: Install the app automatically
+		Content:
+			Browse and choose the report only
+		Audience:
+			RIghthandside-> Add users: vinaytech_0702@vinaytechhouse.com
+			Click Publish
+
+	*********OTHER USER OR CUSTOMER BROWSING***********
+	Open another browser and connect using the below
+			User name: vinaytech_0702@vinaytechhouse.com
+			Password: vinaytech@2024
+	Go to APPs in the lefthand side pane-> Click on the app shared to him-> the user will see the current report in a 		dashboard format
+				
+	
+
+
+
+
+
+
+
+
+
+
