@@ -1,8 +1,11 @@
+The below changes need to  make:
 
 badhires remove from emp, tenure days and months
 
-1. Open PBI Desktop, Extract the given Excel file
+1. Open PBI Desktop Application, Extract the given Excel file
+
 2. Go to Table View-> Ensure all tables having proper shape, consider first row as header for few tables.
+
 3. Go to Model View--> look at one by one dimension table columns with emp table columns, if values match, then connect.
 
 	At the time of age group table, there is no direct match, hence we need to create a new column in employee table
